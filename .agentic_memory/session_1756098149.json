@@ -1,0 +1,35 @@
+{
+  "session_id": "session_1756098149",
+  "repo_path": ".",
+  "model_preset": "test_model",
+  "started_at": 1756098149.973712,
+  "last_active": 1756098149.9740748,
+  "entries": [
+    {
+      "timestamp": 1756098149.9738188,
+      "type": "goal",
+      "content": "Build a web application",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1756098149.973927,
+      "type": "action",
+      "content": "Created main.py file",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1756098149.9740028,
+      "type": "result",
+      "content": "Successfully wrote 150 lines of code",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1756098149.9740741,
+      "type": "conversation",
+      "content": "User asked about database integration",
+      "metadata": {}
+    }
+  ],
+  "goal": null,
+  "context": {}
+}

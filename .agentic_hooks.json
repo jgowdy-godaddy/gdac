@@ -1,0 +1,32 @@
+{
+  "hooks": [
+    {
+      "name": "pre_commit_check",
+      "command": "echo \"Running pre-commit checks...\" && git status --porcelain",
+      "trigger": "before_commit",
+      "description": "Check repository status before commits",
+      "enabled": false
+    },
+    {
+      "name": "format_on_write",
+      "command": "echo \"Auto-formatting code...\" && python -m black {file_path} 2>/dev/null || true",
+      "trigger": "after_write",
+      "description": "Auto-format Python files after writing",
+      "enabled": false
+    },
+    {
+      "name": "test_on_change",
+      "command": "echo \"Running tests...\" && python -m pytest -x --tb=short 2>/dev/null || echo \"Tests not configured\"",
+      "trigger": "after_step",
+      "description": "Run tests after significant changes",
+      "enabled": false
+    },
+    {
+      "name": "test_hook",
+      "command": "echo \"Test hook executed with context: {goal}\"",
+      "trigger": "test_trigger",
+      "description": "A test hook for demonstration",
+      "enabled": true
+    }
+  ]
+}
