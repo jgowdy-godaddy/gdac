@@ -19,6 +19,8 @@ from .format import format_code
 from .packages import install_deps
 from .tree import repo_tree
 from .grep_replace import replace_text
+from .repo_map import repo_map
+from .ast_parser import enhanced_repo_map, analyze_code_structure, parse_ast
 
 ToolFn = Callable[[Dict[str, Any]], str]
 
@@ -44,12 +46,16 @@ class ToolRegistry:
             "install_deps": lambda a: install_deps(self.repo, **a),
             "repo_tree": lambda a: repo_tree(self.repo, **a),
             "replace_text": lambda a: replace_text(self.repo, **a),
+            "repo_map": lambda a: repo_map(self.repo, **a),
+            # AST tools (with fallback)
+            "analyze_code": lambda a: analyze_code_structure(self.repo, **a),
+            "parse_ast": lambda a: parse_ast(self.repo, **a),
         }
         # Optional tools are registered elsewhere (e.g., web_io, fs_nav, grep_tool, etc.)
         # Plan-mode allowlist (non-mutating + planning)
         self._plan_allow = {
             # base read/list/search
-            "read_file", "list_dir", "search_text",
+            "read_file", "list_dir", "search_text", "repo_map", "analyze_code", "parse_ast",
             # nav/grep-style if present
             "list_path", "match_files", "find_text",
             # web tools if present
