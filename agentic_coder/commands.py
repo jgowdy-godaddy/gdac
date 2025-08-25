@@ -72,6 +72,17 @@ class CommandProcessor:
             'memory': self.cmd_memory,
             'sessions': self.cmd_sessions,
             'load': self.cmd_load_session,
+            
+            # MCP (Model Context Protocol)
+            'mcp': self.cmd_mcp,
+            'mcp-add': self.cmd_mcp_add,
+            'mcp-connect': self.cmd_mcp_connect,
+            'mcp-disconnect': self.cmd_mcp_disconnect,
+            
+            # GitHub Actions
+            'workflows': self.cmd_workflows,
+            'workflow-create': self.cmd_workflow_create,
+            'workflow-validate': self.cmd_workflow_validate,
         }
 
     def process_command(self, raw_input: str) -> bool:
@@ -180,6 +191,17 @@ Memory & Sessions:
   memory                    Show current session memory
   sessions                  List all sessions
   load <session_id>         Load a specific session
+
+MCP Integration:
+  mcp                       List MCP servers
+  mcp-add <name> <cmd>      Add MCP server
+  mcp-connect <name>        Connect to MCP server
+  mcp-disconnect <name>     Disconnect from MCP server
+
+GitHub Actions:
+  workflows                 List GitHub Actions workflows
+  workflow-create <type>    Create workflow (review/test/docs/release/security)
+  workflow-validate <file>  Validate workflow file
 
 Text input without : or / is appended to the goal.
 End multi-line input with a single '.' on its own line.
@@ -699,4 +721,254 @@ End multi-line input with a single '.' on its own line.
                 
         except Exception as e:
             console.print(f"[red]Session load failed: {e}[/red]")
+        return True
+    
+    def cmd_mcp(self, args: List[str]) -> bool:
+        """List MCP servers."""
+        try:
+            mcp_client = getattr(self.session, 'mcp_client', None)
+            if not mcp_client:
+                from .mcp import MCPClient
+                mcp_client = MCPClient()
+                if hasattr(self.session, 'mcp_client'):
+                    self.session.mcp_client = mcp_client
+            
+            servers = mcp_client.list_servers()
+            
+            if not servers:
+                console.print("[yellow]No MCP servers configured[/yellow]")
+                console.print("[dim]Use :mcp-add <name> <command> to add a server[/dim]")
+                return True
+            
+            table = Table(title="MCP Servers")
+            table.add_column("Name", style="cyan")
+            table.add_column("Command", style="green")
+            table.add_column("Status", style="yellow")
+            table.add_column("Capabilities", style="dim")
+            
+            for server in servers:
+                status = "✓ Connected" if server['connected'] else "✗ Disconnected"
+                caps = ""
+                if server['capabilities']:
+                    cap_list = []
+                    if server['capabilities'].get('resources'):
+                        cap_list.append("resources")
+                    if server['capabilities'].get('tools'):
+                        cap_list.append("tools")
+                    if server['capabilities'].get('prompts'):
+                        cap_list.append("prompts")
+                    caps = ", ".join(cap_list)
+                
+                table.add_row(server['name'], server['command'], status, caps)
+            
+            console.print(table)
+            
+        except Exception as e:
+            console.print(f"[red]MCP operation failed: {e}[/red]")
+        return True
+    
+    def cmd_mcp_add(self, args: List[str]) -> bool:
+        """Add an MCP server."""
+        if len(args) < 2:
+            console.print("[red]Usage: :mcp-add <name> <command> [args...][/red]")
+            return True
+        
+        try:
+            from .mcp import MCPClient
+            mcp_client = getattr(self.session, 'mcp_client', None)
+            if not mcp_client:
+                mcp_client = MCPClient()
+                if hasattr(self.session, 'mcp_client'):
+                    self.session.mcp_client = mcp_client
+            
+            name = args[0]
+            command = args[1]
+            cmd_args = args[2:] if len(args) > 2 else []
+            
+            mcp_client.add_server(name, command, cmd_args)
+            mcp_client.save_config()
+            
+            console.print(f"[green]Added MCP server '{name}'[/green]")
+            console.print(f"[dim]Use :mcp-connect {name} to connect[/dim]")
+            
+        except Exception as e:
+            console.print(f"[red]Failed to add MCP server: {e}[/red]")
+        return True
+    
+    def cmd_mcp_connect(self, args: List[str]) -> bool:
+        """Connect to an MCP server."""
+        if not args:
+            console.print("[red]Usage: :mcp-connect <name>[/red]")
+            return True
+        
+        try:
+            import asyncio
+            from .mcp import MCPClient
+            
+            mcp_client = getattr(self.session, 'mcp_client', None)
+            if not mcp_client:
+                mcp_client = MCPClient()
+                if hasattr(self.session, 'mcp_client'):
+                    self.session.mcp_client = mcp_client
+            
+            name = args[0]
+            console.print(f"[yellow]Connecting to MCP server '{name}'...[/yellow]")
+            
+            # Run async connection
+            connected = asyncio.run(mcp_client.connect_server(name))
+            
+            if connected:
+                console.print(f"[green]Connected to MCP server '{name}'[/green]")
+                
+                # Register MCP tools with our tool registry if available
+                if hasattr(self.session, 'tools'):
+                    from .mcp import register_mcp_tools
+                    register_mcp_tools(self.session.tools, mcp_client)
+                    console.print(f"[green]MCP tools from '{name}' registered[/green]")
+            else:
+                console.print(f"[red]Failed to connect to MCP server '{name}'[/red]")
+                
+        except Exception as e:
+            console.print(f"[red]Connection failed: {e}[/red]")
+        return True
+    
+    def cmd_mcp_disconnect(self, args: List[str]) -> bool:
+        """Disconnect from an MCP server."""
+        if not args:
+            console.print("[red]Usage: :mcp-disconnect <name>[/red]")
+            return True
+        
+        try:
+            import asyncio
+            from .mcp import MCPClient
+            
+            mcp_client = getattr(self.session, 'mcp_client', None)
+            if not mcp_client:
+                console.print("[yellow]No MCP client initialized[/yellow]")
+                return True
+            
+            name = args[0]
+            disconnected = asyncio.run(mcp_client.disconnect_server(name))
+            
+            if disconnected:
+                console.print(f"[green]Disconnected from MCP server '{name}'[/green]")
+            else:
+                console.print(f"[yellow]Server '{name}' was not connected[/yellow]")
+                
+        except Exception as e:
+            console.print(f"[red]Disconnect failed: {e}[/red]")
+        return True
+    
+    def cmd_workflows(self, args: List[str]) -> bool:
+        """List GitHub Actions workflows."""
+        try:
+            from .github_actions import GitHubActionsManager
+            ga_manager = GitHubActionsManager(self.session.repo)
+            workflows = ga_manager.list_workflows()
+            
+            if not workflows:
+                console.print("[yellow]No GitHub Actions workflows found[/yellow]")
+                console.print("[dim]Use :workflow-create <type> to create workflows[/dim]")
+                return True
+            
+            table = Table(title="GitHub Actions Workflows")
+            table.add_column("File", style="cyan")
+            table.add_column("Name", style="green")
+            table.add_column("Triggers", style="yellow")
+            table.add_column("Jobs", style="blue")
+            
+            for workflow in workflows:
+                if 'error' in workflow:
+                    table.add_row(
+                        workflow['file'],
+                        workflow['name'],
+                        f"[red]Error: {workflow['error']}[/red]",
+                        ""
+                    )
+                else:
+                    triggers = ", ".join(workflow['triggers'])
+                    jobs = ", ".join(workflow['jobs'])
+                    table.add_row(workflow['file'], workflow['name'], triggers, jobs)
+            
+            console.print(table)
+            
+        except Exception as e:
+            console.print(f"[red]Failed to list workflows: {e}[/red]")
+        return True
+    
+    def cmd_workflow_create(self, args: List[str]) -> bool:
+        """Create a GitHub Actions workflow."""
+        if not args:
+            console.print("[red]Usage: :workflow-create <type>[/red]")
+            console.print("[dim]Types: review, test, docs, release, security, all[/dim]")
+            return True
+        
+        try:
+            from .github_actions import GitHubActionsManager
+            ga_manager = GitHubActionsManager(self.session.repo)
+            
+            workflow_type = args[0].lower()
+            created = []
+            
+            if workflow_type == 'review':
+                created.append(ga_manager.create_code_review_workflow())
+            elif workflow_type == 'test':
+                created.append(ga_manager.create_test_automation_workflow())
+            elif workflow_type == 'docs':
+                created.append(ga_manager.create_documentation_workflow())
+            elif workflow_type == 'release':
+                created.append(ga_manager.create_release_workflow())
+            elif workflow_type == 'security':
+                created.append(ga_manager.create_security_scan_workflow())
+            elif workflow_type == 'all':
+                created = ga_manager.create_all_workflows()
+            else:
+                console.print(f"[red]Unknown workflow type: {workflow_type}[/red]")
+                console.print("[dim]Available: review, test, docs, release, security, all[/dim]")
+                return True
+            
+            for workflow_path in created:
+                filename = os.path.basename(workflow_path)
+                console.print(f"[green]Created workflow: {filename}[/green]")
+            
+            if created:
+                console.print("[dim]Commit and push to activate workflows on GitHub[/dim]")
+            
+        except Exception as e:
+            console.print(f"[red]Failed to create workflow: {e}[/red]")
+        return True
+    
+    def cmd_workflow_validate(self, args: List[str]) -> bool:
+        """Validate a GitHub Actions workflow file."""
+        if not args:
+            console.print("[red]Usage: :workflow-validate <file>[/red]")
+            return True
+        
+        try:
+            from .github_actions import GitHubActionsManager
+            ga_manager = GitHubActionsManager(self.session.repo)
+            
+            workflow_file = args[0]
+            result = ga_manager.validate_workflow(workflow_file)
+            
+            if result['valid']:
+                console.print(f"[green]✓ Workflow '{workflow_file}' is valid[/green]")
+                
+                # Show workflow details
+                if 'workflow' in result:
+                    workflow = result['workflow']
+                    console.print(f"  Name: {workflow.get('name', 'Unnamed')}")
+                    console.print(f"  Triggers: {', '.join(workflow.get('on', {}).keys())}")
+                    console.print(f"  Jobs: {', '.join(workflow.get('jobs', {}).keys())}")
+            else:
+                console.print(f"[red]✗ Workflow '{workflow_file}' has errors:[/red]")
+                
+                if 'error' in result:
+                    console.print(f"  {result['error']}")
+                elif 'errors' in result:
+                    for error in result['errors']:
+                        console.print(f"  - {error}")
+            
+        except Exception as e:
+            console.print(f"[red]Validation failed: {e}[/red]")
         return True
