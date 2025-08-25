@@ -4,17 +4,47 @@ from typing import Dict, List, Set, Optional, Any
 from pathlib import Path
 import fnmatch
 
-# Try to import tree-sitter, but fall back gracefully if not available
+# Try to import tree-sitter and individual language packages
 AST_AVAILABLE = False
+PARSERS_CACHE = {}
 try:
-    # Test if tree-sitter is properly available
-    import tree_sitter
-    # For now, disable AST due to compatibility issues with tree_sitter_languages
-    # This can be re-enabled when a compatible version is available
-    AST_AVAILABLE = False  # Temporarily disabled
-    print("Tree-sitter available but disabled due to compatibility issues")
+    from tree_sitter import Language, Parser, Node
+    # Try individual language packages which work better than tree_sitter_languages
+    try:
+        import tree_sitter_python
+        AST_AVAILABLE = True
+    except ImportError:
+        pass
+    
+    def get_parser_for_language(lang_name: str):
+        """Get parser for a specific language using individual packages."""
+        if lang_name in PARSERS_CACHE:
+            return PARSERS_CACHE[lang_name]
+        
+        try:
+            if lang_name == 'python':
+                import tree_sitter_python
+                language = Language(tree_sitter_python.language())
+                parser = Parser(language)
+                PARSERS_CACHE[lang_name] = parser
+                return parser
+        except ImportError:
+            pass
+        
+        # Try fallback with tree_sitter_languages if available
+        try:
+            from tree_sitter_languages import get_parser
+            parser = get_parser(lang_name)
+            PARSERS_CACHE[lang_name] = parser
+            return parser
+        except Exception:
+            pass
+        
+        return None
+    
 except ImportError:
-    AST_AVAILABLE = False
+    def get_parser_for_language(lang_name: str):
+        return None
 
 from .repo_map import repo_map
 
@@ -22,13 +52,18 @@ from .repo_map import repo_map
 AST Parser Tool: Enhanced repository analysis using tree-sitter with repo_map fallback.
 Provides accurate symbol extraction and code structure analysis.
 
-NOTE: Currently falls back to repo_map due to compatibility issues with tree_sitter_languages.
-To enable full AST functionality:
-1. Fix tree_sitter_languages compatibility or use alternative bindings
-2. Set AST_AVAILABLE = True after fixing imports
-3. Test with: enhanced_repo_map('.', use_ast=True)
+IMPLEMENTATION:
+- Uses individual tree-sitter language packages (e.g., tree_sitter_python)
+- Falls back to tree_sitter_languages if individual packages unavailable  
+- Gracefully degrades to regex-based repo_map if AST completely unavailable
+- Currently supports Python with full AST parsing
+- Ready for JavaScript, TypeScript, Go, Java, Rust with additional packages
 
-The system gracefully falls back to regex-based symbol extraction via repo_map.
+FEATURES:
+- Clean symbol extraction without parameter noise
+- Proper AST-based parsing vs regex patterns
+- Multi-language architecture with plugin system
+- Integrated into system prompts for repository context
 """
 
 # Language mapping for tree-sitter
@@ -148,7 +183,7 @@ def _extract_symbols_ast(file_path: str, content: str, language: str) -> List[st
         return []
     
     try:
-        parser = get_language_safe(language)
+        parser = get_parser_for_language(language)
         if not parser:
             return []
         
@@ -289,7 +324,7 @@ def parse_ast(repo: str, file_path: str, **kwargs) -> str:
         with open(full_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        parser = get_language_safe(language)
+        parser = get_parser_for_language(language)
         if not parser:
             return f"Language not supported or parser unavailable: {language}"
         
