@@ -82,6 +82,8 @@ class AgenticCoderApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("ctrl+d", "quit", "Quit", show=False),
         Binding("ctrl+l", "clear", "Clear output"),
+        Binding("ctrl+a", "go_home", "Home", show=False),
+        Binding("ctrl+e", "go_end", "End", show=False),
         Binding("escape", "cancel", "Cancel", show=False),
     ]
     
@@ -96,6 +98,7 @@ class AgenticCoderApp(App):
         self._should_exit = False
         self._cancel_requested = False
         self._current_task = None
+        self._load_history()
         
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -211,8 +214,10 @@ class AgenticCoderApp(App):
         if not cmd:
             return
             
-        # Add to history
-        self.command_history.append(cmd)
+        # Add to history if not empty and different from last
+        if cmd and (not self.command_history or self.command_history[-1] != cmd):
+            self.command_history.append(cmd)
+            self._save_history()
         self.history_index = len(self.command_history)
         
         # Show command in output
@@ -271,18 +276,21 @@ class AgenticCoderApp(App):
             return
         
         if event.key == "up":
-            if self.history_index > 0 and self.command_history:
+            if self.command_history and self.history_index > 0:
                 self.history_index -= 1
                 input_widget.value = self.command_history[self.history_index]
                 input_widget.cursor_position = len(input_widget.value)
+                event.stop()
         elif event.key == "down":
             if self.history_index < len(self.command_history) - 1:
                 self.history_index += 1
                 input_widget.value = self.command_history[self.history_index]
                 input_widget.cursor_position = len(input_widget.value)
+                event.stop()
             elif self.history_index == len(self.command_history) - 1:
                 self.history_index = len(self.command_history)
                 input_widget.value = ""
+                event.stop()
     
     def add_output(self, text: str) -> None:
         """Add text to output (thread-safe)."""
@@ -462,6 +470,51 @@ class AgenticCoderApp(App):
         # Update the status bar
         status_text = " | ".join(status_parts) if status_parts else "Ready"
         status_bar.update(status_text)
+    
+    def _load_history(self) -> None:
+        """Load command history from file."""
+        try:
+            # Get repo path from session or use current directory
+            repo_path = os.getcwd()
+            if self.session and hasattr(self.session, 'repo'):
+                repo_path = self.session.repo
+            
+            history_file = os.path.join(repo_path, ".agentic_history")
+            if os.path.exists(history_file):
+                with open(history_file, "r", encoding="utf-8") as f:
+                    self.command_history = [line.strip() for line in f if line.strip()]
+                    self.history_index = len(self.command_history)
+                debug_logger.info(f"Loaded {len(self.command_history)} commands from history")
+        except Exception as e:
+            debug_logger.error(f"Failed to load history: {e}")
+    
+    def _save_history(self) -> None:
+        """Save command history to file."""
+        try:
+            # Get repo path from session or use current directory
+            repo_path = os.getcwd()
+            if self.session and hasattr(self.session, 'repo'):
+                repo_path = self.session.repo
+            
+            history_file = os.path.join(repo_path, ".agentic_history")
+            # Keep only last 1000 commands
+            history_to_save = self.command_history[-1000:]
+            with open(history_file, "w", encoding="utf-8") as f:
+                for cmd in history_to_save:
+                    f.write(cmd + "\n")
+            debug_logger.info(f"Saved {len(history_to_save)} commands to history")
+        except Exception as e:
+            debug_logger.error(f"Failed to save history: {e}")
+    
+    def action_go_home(self) -> None:
+        """Move cursor to beginning of line (Ctrl+A)."""
+        input_widget = self.query_one("#input", Input)
+        input_widget.cursor_position = 0
+    
+    def action_go_end(self) -> None:
+        """Move cursor to end of line (Ctrl+E)."""
+        input_widget = self.query_one("#input", Input)
+        input_widget.cursor_position = len(input_widget.value)
 
 
 class TextualUI:
