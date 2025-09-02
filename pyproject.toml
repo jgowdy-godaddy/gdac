@@ -3,7 +3,7 @@ requires = ["setuptools>=67", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentic-coder"
+name = "gdac"
 version = "0.2.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,7 +12,8 @@ dependencies = [
   "accelerate>=0.33.0",
   "huggingface_hub>=0.24.0",
   "datasets>=2.19.0",
-  "rich>=13.7.0",
+  "rich>=13.9.0",
+  "textual>=0.47.0",
   "typer>=0.12.3",
   "unidiff>=0.7.5",
   "python-dotenv>=1.0.1",
@@ -28,4 +29,8 @@ dependencies = [
 ]
 
 [project.scripts]
-agentic-coder = "agentic_coder.cli:app"
+gdac = "agentic_coder.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agentic_coder", "agentic_coder.*"]
+exclude = ["prompts", "tests", "tests.*"]

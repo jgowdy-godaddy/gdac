@@ -1,20 +1,20 @@
-# Agentic Coder - Production-Ready Claude Code Style Agent
+# GoDaddy Agentic Coder (gdac) - Production-Ready Autonomous Development Agent
 
-A powerful, autonomous coding agent with **comprehensive Claude Code feature parity**. Features AST-enhanced code analysis, MCP integration, GitHub Actions automation, and 30+ built-in tools. Supports both **open-weight** models (Qwen, DeepSeek) and **remote APIs** (OpenAI/Anthropic).
+A powerful, autonomous coding agent built by GoDaddy with **comprehensive development features**. Features AST-enhanced code analysis, MCP integration, GitHub Actions automation, and 30+ built-in tools. Supports both **open-weight** models (Qwen, DeepSeek) and **remote APIs** (OpenAI/Anthropic).
 
 ## 🚀 Key Features
 
 ### Core Capabilities
 - **Multi-Model Support**: Local HuggingFace models + OpenAI/Anthropic APIs
 - **AST-Enhanced Analysis**: Tree-sitter powered code understanding (36x faster)
-- **Repository Intelligence**: Aider-style context in every interaction
+- **Repository Intelligence**: Full codebase context in every interaction
 - **MCP Integration**: Connect to external tools via Model Context Protocol
 - **GitHub Actions**: Automated CI/CD workflow generation
 - **Memory Management**: Persistent sessions with context retention
 - **Hooks System**: Extensible workflow automation
-- **Enhanced Commands**: Both `:` and `/` prefixes (Claude Code style)
+- **Enhanced Commands**: Both `:` and `/` prefixes for flexible command entry
 
-### Superior to Basic Claude Code
+### Advanced Features
 - **Real AST Parsing** vs regex patterns
 - **Repository Mapping** with symbol extraction
 - **Plan Mode** for safe exploration
@@ -205,8 +205,7 @@ MIT License - See LICENSE file
 
 ## 🙏 Acknowledgments
 
-- Inspired by Claude Code from Anthropic
-- Repository mapping from Aider AI  
+- Advanced repository mapping techniques  
 - Tree-sitter for AST capabilities
 - Open-source community contributions
 
