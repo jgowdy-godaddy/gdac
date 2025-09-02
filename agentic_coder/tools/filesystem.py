@@ -79,16 +79,124 @@ def write_file(repo: str, path: str, content: str) -> str:
 
 def list_dir(repo: str, path: str = ".", recursive: bool = False) -> str:
     base = _abs(repo, path)
+    
+    # Directories to exclude in recursive listings (huge, not useful for agents)
+    EXCLUDE_DIRS = {
+        '.git', '.svn', '.hg', '.bzr',  # Version control
+        'node_modules', 'bower_components',  # JavaScript
+        'venv', 'env', '.env', 'virtualenv', '.venv',  # Python virtual environments  
+        '__pycache__', '.pytest_cache', '.tox',  # Python caches
+        'target', 'build', 'dist', 'out',  # Build outputs
+        '.gradle', '.mvn',  # Java/Gradle/Maven
+        'vendor',  # Various languages (Go, PHP, etc)
+        '.idea', '.vscode', '.vs',  # IDE directories
+        'coverage', '.coverage',  # Test coverage
+        '.terraform', '.serverless',  # Infrastructure
+        'Pods',  # iOS/CocoaPods
+        '.mypy_cache', '.ruff_cache',  # More Python caches
+        'site-packages',  # Python packages
+        '.asdf',  # Language version manager (massive)
+        'Library',  # macOS system directory (massive)
+        'go/pkg', 'go/src',  # Go packages/modules
+        '.cache', '.config',  # User cache/config directories
+        '.cursor', '.claude-docker',  # IDE and tool caches
+        '.rye', '.conda', '.pyenv',  # Python version managers
+    }
+    
     if not recursive:
+        # For non-recursive, still show the directories but don't enter them
         return "\n".join(sorted(os.listdir(base)))
+    
+    # Aggressive limits to prevent massive outputs
+    MAX_TOTAL_LINES = 1000  # Never return more than 1000 lines total
+    MAX_ENTRIES_PER_DIR = 50   # Reduced from 100
+    MAX_FILES_PER_DIR = 20     # Reduced from 50
+    
+    # Smart directory truncation - sample size and truncate large ones
+    def count_dir_contents(dir_path):
+        """Count files and subdirs in a directory (non-recursive)."""
+        try:
+            entries = os.listdir(dir_path)
+            return len(entries)
+        except:
+            return 0
+    
     acc = []
+    truncated_dirs = []
+    line_count = 0
+    
     for root, dirs, files in os.walk(base):
+        # Hard limit - stop if we're approaching max lines
+        if line_count >= MAX_TOTAL_LINES - 10:
+            acc.append(f"[TRUNCATED - output limit reached, showing first {line_count} entries]")
+            break
+            
         rel_root = os.path.relpath(root, repo)
-        for d in sorted(dirs):
-            acc.append(os.path.join(rel_root, d) + "/")
+        
+        # Check if this directory should be excluded entirely
+        dirs_to_process = []
+        for d in dirs:
+            if line_count >= MAX_TOTAL_LINES - 10:
+                break
+                
+            if d in EXCLUDE_DIRS:
+                # Note that we excluded it
+                if rel_root == ".":
+                    acc.append(f"{d}/ [excluded - known large directory]")
+                    line_count += 1
+                continue
+                
+            dir_path = os.path.join(root, d)
+            entry_count = count_dir_contents(dir_path)
+            
+            if entry_count > MAX_ENTRIES_PER_DIR:
+                # This directory is huge - show it but don't recurse into it
+                rel_dir = os.path.join(rel_root, d) if rel_root != "." else d
+                acc.append(f"{rel_dir}/ [{entry_count:,} files]")
+                line_count += 1
+                truncated_dirs.append(dir_path)
+            else:
+                # Normal directory, will recurse into it
+                dirs_to_process.append(d)
+                rel_dir = os.path.join(rel_root, d) if rel_root != "." else d
+                acc.append(f"{rel_dir}/")
+                line_count += 1
+        
+        # Modify dirs in-place to control recursion
+        dirs[:] = [d for d in dirs_to_process if os.path.join(root, d) not in truncated_dirs]
+        
+        # Add files from current directory
+        file_count = 0
+        skipped_count = 0
         for fn in sorted(files):
-            acc.append(os.path.join(rel_root, fn))
-    return "\n".join(acc)
+            if line_count >= MAX_TOTAL_LINES - 5:
+                break
+                
+            # Skip common cache/compiled files (but not archives which might be important)
+            if fn.endswith(('.pyc', '.pyo', '.so', '.dylib', '.dll', '.class')):
+                skipped_count += 1
+                continue
+                
+            file_count += 1
+            if file_count <= MAX_FILES_PER_DIR:
+                rel_file = os.path.join(rel_root, fn) if rel_root != "." else fn
+                acc.append(rel_file)
+                line_count += 1
+            elif file_count == MAX_FILES_PER_DIR + 1:
+                remaining = len(files) - MAX_FILES_PER_DIR - skipped_count
+                if remaining > 0:
+                    acc.append(f"[... and {remaining} more files in {rel_root}]")
+                    line_count += 1
+                break
+    
+    result = "\n".join(acc)
+    
+    # Final safety check - if result is still too large, truncate it
+    MAX_CHARS = 50000  # 50KB max output
+    if len(result) > MAX_CHARS:
+        result = result[:MAX_CHARS] + f"\n[TRUNCATED - output was {len(result):,} chars, showing first {MAX_CHARS:,}]"
+    
+    return result
 
 
 def search_text(repo: str, pattern: str, path: str = ".", glob: Optional[str] = None,
@@ -102,7 +210,12 @@ def search_text(repo: str, pattern: str, path: str = ".", glob: Optional[str] = 
         # simple ** glob -> regex
         rgx = re.escape(g).replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", ".")
         return re.fullmatch(rgx, rel) is not None
-    for root, _, files in os.walk(base):
+    # Exclude common large directories from search
+    EXCLUDE_DIRS = {'node_modules', 'venv', '.git', '__pycache__', 'dist', 'build'}
+    
+    for root, dirs, files in os.walk(base):
+        # Modify dirs in-place to skip excluded directories
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for fn in files:
             if file_type:
                 ext = os.path.splitext(fn)[1].lstrip(".")
