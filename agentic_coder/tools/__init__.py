@@ -40,7 +40,7 @@ class ToolRegistry:
             "git_status": lambda a: git_status(self.repo, **a),
             "git_diff": lambda a: git_diff(self.repo, **a),
             "git_commit": lambda a: git_commit(self.repo, **a),
-            # Extras (Claude Code–style)
+            # Extended tools
             "run_tests": lambda a: run_tests(self.repo, **a),
             "format_code": lambda a: format_code(self.repo, **a),
             "install_deps": lambda a: install_deps(self.repo, **a),

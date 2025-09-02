@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 """
 Memory Management: Session persistence and context retention
-Similar to Claude Code's memory capabilities for maintaining context across sessions.
+Maintains context and conversation history across sessions.
 """
 
 @dataclass

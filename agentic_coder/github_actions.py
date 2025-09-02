@@ -7,7 +7,7 @@ from pathlib import Path
 
 """
 GitHub Actions Integration
-Provides automation capabilities for CI/CD workflows similar to Claude Code.
+Provides automation capabilities for CI/CD workflows.
 """
 
 class GitHubActionsManager:

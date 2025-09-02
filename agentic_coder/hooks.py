@@ -8,7 +8,7 @@ from pathlib import Path
 
 """
 Hooks System: Extensible command triggers for custom workflows
-Similar to Claude Code's hooks for integrating with external tools and workflows.
+Integrates with external tools and custom automation workflows.
 """
 
 @dataclass 
