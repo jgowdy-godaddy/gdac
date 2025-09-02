@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.syntax import Syntax
 
 """
-Command system for Agentic Coder - supports both : and / prefixes like Claude Code
+Command system for Agentic Coder - uses / prefix for commands
 """
 
 console = Console()
@@ -20,7 +20,7 @@ class CommandProcessor:
     def __init__(self, session):
         self.session = session
         self.commands = {
-            # Core commands (Claude Code style)
+            # Core commands
             'help': self.cmd_help,
             'h': self.cmd_help,
             'models': self.cmd_models,
@@ -38,7 +38,7 @@ class CommandProcessor:
             'go': self.cmd_go,
             'run': self.cmd_run,
             
-            # File operations (Claude Code style)
+            # File operations
             'read': self.cmd_read,
             'write': self.cmd_write,
             'edit': self.cmd_edit,
@@ -83,6 +83,9 @@ class CommandProcessor:
             'workflows': self.cmd_workflows,
             'workflow-create': self.cmd_workflow_create,
             'workflow-validate': self.cmd_workflow_validate,
+            
+            # Model updates
+            'update': self.cmd_update,
         }
 
     def process_command(self, raw_input: str) -> bool:
@@ -90,15 +93,12 @@ class CommandProcessor:
         if not raw_input.strip():
             return True
             
-        # Support both : and / prefixes like Claude Code
-        if raw_input.startswith(('::', '//')):
-            # Double prefix shows raw command
+        # Support only / prefix for commands
+        if raw_input.startswith('//'):
+            # Double slash shows raw command
             console.print(f"[dim]{raw_input}[/dim]")
             return True
-        elif raw_input.startswith((':/', '/:')):
-            # Mixed prefix - treat as regular text
-            return self._handle_text_input(raw_input)
-        elif raw_input.startswith((':', '/')):
+        elif raw_input.startswith('/'):
             return self._handle_command(raw_input[1:])
         else:
             return self._handle_text_input(raw_input)
@@ -117,98 +117,123 @@ class CommandProcessor:
                 return self.commands[cmd_name](args)
             else:
                 console.print(f"[red]Unknown command: {cmd_name}[/red]")
-                console.print("[dim]Type :help or /help for available commands[/dim]")
+                console.print("[dim]Type /help for available commands[/dim]")
                 return True
         except Exception as e:
             console.print(f"[red]Command error: {e}[/red]")
             return True
 
     def _handle_text_input(self, text: str) -> bool:
-        """Handle regular text input - append to goal."""
+        """Handle regular text input - set goal and auto-execute."""
         if text.strip() == ".":
             return True  # Empty line
             
-        current_goal = getattr(self.session, 'goal', '') or ''
-        if current_goal:
-            new_goal = f"{current_goal}\n{text}"
-        else:
-            new_goal = text
-            
-        self.session.set_goal(new_goal.strip())
-        console.print(f"[dim]Goal updated. Use :step or /step to execute.[/dim]")
+        # Set the goal to the new text (don't append - just replace)
+        self.session.set_goal(text.strip())
+        
+        # Auto-execute immediately
+        try:
+            # Run up to 10 steps automatically
+            for i in range(10):
+                if not self.session.step():
+                    break
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+        
         return True
 
     # Command implementations
     def cmd_help(self, args: List[str]) -> bool:
         """Show help message."""
+        # Check if specific topic requested
+        if args and args[0] in ['file', 'files', 'search', 'plan', 'settings', 'session', 'mcp', 'github']:
+            return self._show_topic_help(args[0])
+        
+        # Show concise main help
         help_text = """
-Commands (use : or / prefix):
-  help, h                   Show this help
-  models                    List available models  
-  use <preset>              Switch model preset
-  who                       Show current status
-  tools                     List available tools
-  reset                     Clear history and goal
-  quit, exit, q             Exit
+[bold cyan]Quick Commands:[/]
+  /help [topic]    Show help (topics: file, search, plan, settings)
+  /models          List available models  
+  /use <model>     Switch model
+  /quit            Exit
 
-Goal & Execution:
-  goal <text>               Set goal for agent
-  step                      Execute one agent step
-  go [n]                    Execute n steps (default 10)
-  run <command>             Run shell command
+[bold cyan]Execution:[/]
+  /goal <text>     Set goal (auto-executes)
+  /step            Execute one step
+  /go [n]          Execute n steps (default 10)
 
-File Operations:
-  read <path>               Read file
-  write <path>              Write file (interactive)
-  edit <path>               Edit file 
-  add <path>                Create new file
+[bold cyan]Files:[/]
+  /read <path>     Read file
+  /write <path>    Write file
+  /grep <pattern>  Search in code
 
-Search & Analysis:
-  grep <pattern>            Search in repository
-  search <pattern>          Alias for grep
-  web <query>               Web search
-  fetch <url>               Fetch URL content
-  analyze [file]            AST analysis
-  ast <file>                Parse file AST
-  map                       Repository map
-
-Plan Mode:
-  plan                      Enter plan mode
-  approve                   Approve plan
-  reject                    Reject plan
-
-Settings:
-  stream on|off             Toggle streaming
-  temp <value>              Set temperature (0.0-1.0)
-
-Hooks & Extensibility:
-  hooks                     List all hooks
-  hook add <name> <trigger> <cmd>  Add new hook
-  hook enable <name>        Enable hook
-  hook disable <name>       Disable hook
-
-Memory & Sessions:
-  memory                    Show current session memory
-  sessions                  List all sessions
-  load <session_id>         Load a specific session
-
-MCP Integration:
-  mcp                       List MCP servers
-  mcp-add <name> <cmd>      Add MCP server
-  mcp-connect <name>        Connect to MCP server
-  mcp-disconnect <name>     Disconnect from MCP server
-
-GitHub Actions:
-  workflows                 List GitHub Actions workflows
-  workflow-create <type>    Create workflow (review/test/docs/release/security)
-  workflow-validate <file>  Validate workflow file
-
-Text input without : or / is appended to the goal.
-End multi-line input with a single '.' on its own line.
+[bold cyan]Tips:[/]
+• Type naturally without / and I'll auto-execute
+• Press ESC to cancel processing
+• Use /help <topic> for detailed help
         """
-        console.print(Panel(help_text.strip(), title="Agentic Coder Commands"))
+        console.print(help_text.strip())
         return True
 
+    def _show_topic_help(self, topic: str) -> bool:
+        """Show help for specific topic."""
+        topics = {
+            'file': """[bold cyan]File Operations:[/]
+  /read <path>       Read file content
+  /write <path>      Write/overwrite file (interactive)
+  /edit <path>       Edit existing file
+  /add <path>        Create new file""",
+            
+            'search': """[bold cyan]Search & Analysis:[/]
+  /grep <pattern>    Search in repository
+  /search <pattern>  Alias for grep
+  /web <query>       Web search
+  /fetch <url>       Fetch URL content
+  /analyze [file]    AST analysis
+  /map               Repository map""",
+            
+            'plan': """[bold cyan]Plan Mode:[/]
+  /plan              Enter plan mode
+  /approve           Approve plan
+  /reject            Reject plan""",
+            
+            'settings': """[bold cyan]Settings:[/]
+  /stream on|off     Toggle streaming
+  /temp <value>      Set temperature (0.0-1.0)
+  /who               Show current status
+  /tools             List available tools
+  /reset             Clear conversation
+  /update            Update model configs""",
+            
+            'session': """[bold cyan]Sessions & Memory:[/]
+  /memory            Show session memory
+  /sessions          List all sessions  
+  /load <id>         Load specific session""",
+            
+            'mcp': """[bold cyan]MCP Integration:[/]
+  /mcp               List MCP servers
+  /mcp-add <n> <c>   Add MCP server
+  /mcp-connect <n>   Connect to server
+  /mcp-disconnect    Disconnect server""",
+            
+            'github': """[bold cyan]GitHub Actions:[/]
+  /workflows         List workflows
+  /workflow-create   Create workflow
+  /workflow-validate Validate workflow"""
+        }
+        
+        # Normalize topic name
+        if topic == 'files':
+            topic = 'file'
+        
+        if topic in topics:
+            console.print(topics[topic])
+        else:
+            console.print(f"[yellow]Unknown topic: {topic}[/]")
+            console.print("[dim]Available topics: file, search, plan, settings, session, mcp, github[/]")
+        
+        return True
+    
     def cmd_models(self, args: List[str]) -> bool:
         """List available models."""
         from .config import MODEL_PRESETS
@@ -225,14 +250,15 @@ End multi-line input with a single '.' on its own line.
         return True
 
     def cmd_use(self, args: List[str]) -> bool:
-        """Switch model preset."""
+        """Switch model."""
         if not args:
-            console.print("[red]Usage: :use <preset>[/red]")
+            console.print("[red]Usage: /use <model>[/red]")
+            console.print("[dim]Examples: /use claude-3-5-sonnet, /use gpt-4o, /use qwen2.5-coder-14b[/dim]")
             return True
             
         try:
             self.session.switch_model(args[0])
-            console.print(f"[green]Switched to model preset: {args[0]}[/green]")
+            console.print(f"[green]Switched to model: {args[0]}[/green]")
         except Exception as e:
             console.print(f"[red]Failed to switch model: {e}[/red]")
         return True
@@ -242,7 +268,7 @@ End multi-line input with a single '.' on its own line.
         plan_state = self._get_plan_state()
         console.print(f"[bold]Status:[/bold]")
         console.print(f"  Repo: {self.session.repo}")
-        console.print(f"  Model: {self.session.preset}")
+        console.print(f"  Model: {self.session.model}")
         console.print(f"  Plan Mode: {plan_state}")
         console.print(f"  Streaming: {'on' if getattr(self.session, 'streaming', True) else 'off'}")
         console.print(f"  Goal: {getattr(self.session, 'goal', 'None')[:100]}{'...' if len(getattr(self.session, 'goal', '')) > 100 else ''}")
@@ -316,7 +342,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_run(self, args: List[str]) -> bool:
         """Run shell command."""
         if not args:
-            console.print("[red]Usage: :run <command>[/red]")
+            console.print("[red]Usage: /run <command>[/red]")
             return True
             
         command = ' '.join(args)
@@ -330,7 +356,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_read(self, args: List[str]) -> bool:
         """Read file."""
         if not args:
-            console.print("[red]Usage: :read <path>[/red]")
+            console.print("[red]Usage: /read <path>[/red]")
             return True
             
         try:
@@ -348,7 +374,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_write(self, args: List[str]) -> bool:
         """Write file interactively."""
         if not args:
-            console.print("[red]Usage: :write <path>[/red]")
+            console.print("[red]Usage: /write <path>[/red]")
             return True
             
         from rich.prompt import Prompt
@@ -378,7 +404,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_edit(self, args: List[str]) -> bool:
         """Edit file (alias for write after read)."""
         if not args:
-            console.print("[red]Usage: :edit <path>[/red]")
+            console.print("[red]Usage: /edit <path>[/red]")
             return True
             
         # First show current content
@@ -393,7 +419,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_grep(self, args: List[str]) -> bool:
         """Search in repository."""
         if not args:
-            console.print("[red]Usage: :grep <pattern>[/red]")
+            console.print("[red]Usage: /grep <pattern>[/red]")
             return True
             
         try:
@@ -410,7 +436,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_web(self, args: List[str]) -> bool:
         """Web search."""
         if not args:
-            console.print("[red]Usage: :web <query>[/red]")
+            console.print("[red]Usage: /web <query>[/red]")
             return True
             
         query = ' '.join(args)
@@ -424,7 +450,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_fetch(self, args: List[str]) -> bool:
         """Fetch URL content."""
         if not args:
-            console.print("[red]Usage: :fetch <url>[/red]")
+            console.print("[red]Usage: /fetch <url>[/red]")
             return True
             
         try:
@@ -476,7 +502,7 @@ End multi-line input with a single '.' on its own line.
             self.session.streaming = False
             console.print("[green]Streaming disabled[/green]")
         else:
-            console.print("[red]Usage: :stream on|off[/red]")
+            console.print("[red]Usage: /stream on|off[/red]")
         return True
 
     def cmd_temp(self, args: List[str]) -> bool:
@@ -512,7 +538,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_ast(self, args: List[str]) -> bool:
         """Parse AST for file."""
         if not args:
-            console.print("[red]Usage: :ast <file>[/red]")
+            console.print("[red]Usage: /ast <file>[/red]")
             return True
             
         try:
@@ -573,7 +599,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_hook(self, args: List[str]) -> bool:
         """Manage hooks."""
         if not args:
-            console.print("[red]Usage: :hook <add|enable|disable|remove> [args...][/red]")
+            console.print("[red]Usage: /hook <add|enable|disable|remove> [args...][/red]")
             return True
             
         try:
@@ -608,8 +634,8 @@ End multi-line input with a single '.' on its own line.
                     console.print(f"[red]Hook '{name}' not found[/red]")
                     
             else:
-                console.print("[red]Usage: :hook add <name> <trigger> <command>[/red]")
-                console.print("[red]       :hook enable|disable|remove <name>[/red]")
+                console.print("[red]Usage: /hook add <name> <trigger> <command>[/red]")
+                console.print("[red]       /hook enable|disable|remove <name>[/red]")
                 
         except Exception as e:
             console.print(f"[red]Hook operation failed: {e}[/red]")
@@ -696,7 +722,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_load_session(self, args: List[str]) -> bool:
         """Load a specific session."""
         if not args:
-            console.print("[red]Usage: :load <session_id>[/red]")
+            console.print("[red]Usage: /load <session_id>[/red]")
             return True
         
         try:
@@ -770,7 +796,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_mcp_add(self, args: List[str]) -> bool:
         """Add an MCP server."""
         if len(args) < 2:
-            console.print("[red]Usage: :mcp-add <name> <command> [args...][/red]")
+            console.print("[red]Usage: /mcp-add <name> <command> [args...][/red]")
             return True
         
         try:
@@ -798,7 +824,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_mcp_connect(self, args: List[str]) -> bool:
         """Connect to an MCP server."""
         if not args:
-            console.print("[red]Usage: :mcp-connect <name>[/red]")
+            console.print("[red]Usage: /mcp-connect <name>[/red]")
             return True
         
         try:
@@ -835,7 +861,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_mcp_disconnect(self, args: List[str]) -> bool:
         """Disconnect from an MCP server."""
         if not args:
-            console.print("[red]Usage: :mcp-disconnect <name>[/red]")
+            console.print("[red]Usage: /mcp-disconnect <name>[/red]")
             return True
         
         try:
@@ -899,7 +925,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_workflow_create(self, args: List[str]) -> bool:
         """Create a GitHub Actions workflow."""
         if not args:
-            console.print("[red]Usage: :workflow-create <type>[/red]")
+            console.print("[red]Usage: /workflow-create <type>[/red]")
             console.print("[dim]Types: review, test, docs, release, security, all[/dim]")
             return True
         
@@ -941,7 +967,7 @@ End multi-line input with a single '.' on its own line.
     def cmd_workflow_validate(self, args: List[str]) -> bool:
         """Validate a GitHub Actions workflow file."""
         if not args:
-            console.print("[red]Usage: :workflow-validate <file>[/red]")
+            console.print("[red]Usage: /workflow-validate <file>[/red]")
             return True
         
         try:
@@ -971,4 +997,34 @@ End multi-line input with a single '.' on its own line.
             
         except Exception as e:
             console.print(f"[red]Validation failed: {e}[/red]")
+        return True
+    
+    def cmd_update(self, args: List[str]) -> bool:
+        """Update model configurations."""
+        try:
+            import sys
+            from pathlib import Path
+            
+            # Add scripts directory to path
+            scripts_dir = Path(__file__).parent.parent / "scripts"
+            if str(scripts_dir) not in sys.path:
+                sys.path.insert(0, str(scripts_dir))
+            
+            from update_models import update_models_if_needed
+            
+            console.print("[yellow]Checking for model updates...[/yellow]")
+            
+            # Force update when manually triggered
+            if update_models_if_needed(force=True, silent=False):
+                console.print("[green]✓ Model configurations updated[/green]")
+                
+                # Reload the config in the agent
+                if hasattr(self.session.agent, '_load_model_config'):
+                    self.session.agent._load_model_config()
+                    console.print("[green]✓ Reloaded model configurations[/green]")
+            else:
+                console.print("[yellow]Model configurations are already up to date[/yellow]")
+                
+        except Exception as e:
+            console.print(f"[red]Update failed: {e}[/red]")
         return True
