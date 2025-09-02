@@ -1,8 +1,12 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -16,30 +20,57 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
 # Virtual environments
-.env
-.venv
-env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+env/
+.venv/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Project specific
-.agentic_plan.json
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# Logs
+*.log
+logs/
+
+# Local config
+.env
+.env.local
+
+# Agentic Coder specific
+.agentic_history
+.agentic_memory/
+.agentic_hooks.json
+*_debug.log
+debug_*.py
+test_*.py
+test_*.sh
+ui_comparison.py
+demo_*.py
+minimal_test.py
+cli_output.txt
+setup_claude.md
+hello_*.txt
+
+# Temporary UI files (will be cleaned up later)
+agentic_coder/rich_ui_fixed.py
+agentic_coder/working_rich_ui.py
+agentic_coder/simple_ui.py
+agentic_coder/persistent_ui.py
