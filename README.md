@@ -28,9 +28,6 @@ git clone https://github.com/jgowdy-godaddy/gdac.git
 cd gdac
 pip install -e .
 
-# Install with AST support (already included)
-pip install -e .
-
 # For development
 pip install -e ".[dev]" pytest
 ```
