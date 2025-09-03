@@ -24,12 +24,12 @@ A powerful, autonomous coding agent built by GoDaddy with **comprehensive develo
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/agentic-coder.git
-cd agentic-coder
+git clone https://github.com/jgowdy-godaddy/gdac.git
+cd gdac
 pip install -e .
 
-# Install with AST support
-pip install -e . tree-sitter-python
+# Install with AST support (already included)
+pip install -e .
 
 # For development
 pip install -e ".[dev]" pytest
@@ -40,32 +40,32 @@ pip install -e ".[dev]" pytest
 ### Interactive REPL Mode
 ```bash
 # Start with default model
-agentic-coder
+gdac
 
 # With specific model
-agentic-coder --model remote-openai
+gdac --model remote-openai
 
 # With specific repository  
-agentic-coder --repo /path/to/project
+gdac --repo /path/to/project
 ```
 
 ### Command-Line Usage
 ```bash
 # List available models
-agentic-coder models
+gdac models
 
 # Run with local model
-agentic-coder run --model qwen2.5-coder-14b --repo . \
+gdac run --model qwen2.5-coder-14b --repo . \
   --goal "Fix failing tests and add --dry-run flag"
 
 # Run with OpenAI
 export OPENAI_API_KEY="sk-..."
-agentic-coder run --model remote-openai --remote-model gpt-4o --repo . \
+gdac run --model remote-openai --remote-model gpt-4o --repo . \
   --goal "Refactor authentication module"
 
 # Run with Anthropic
 export ANTHROPIC_API_KEY="sk-ant-..."
-agentic-coder run --model remote-anthropic --remote-model claude-3-opus --repo . \
+gdac run --model remote-anthropic --remote-model claude-3-opus --repo . \
   --goal "Add comprehensive error handling"
 ```
 
