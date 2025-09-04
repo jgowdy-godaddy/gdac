@@ -22,6 +22,7 @@ A powerful, autonomous coding agent built by GoDaddy with **comprehensive develo
 
 ## 📦 Installation
 
+### Using pip
 ```bash
 # Clone and install
 git clone https://github.com/jgowdy-godaddy/gdac.git
@@ -32,27 +33,64 @@ pip install -e .
 pip install -e ".[dev]" pytest
 ```
 
+### Using uv
+```bash
+# Clone and install
+git clone https://github.com/jgowdy-godaddy/gdac.git
+cd gdac
+uv pip install -e .
+
+# For development
+uv pip install -e ".[dev]" pytest
+```
+
+### Shell Aliases (for uv users)
+Add these aliases to your shell profile (`.bashrc`, `.zshrc`, etc.) for easier usage:
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or equivalent
+alias gdac='uv run gdac'
+alias gdac-models='uv run gdac models'
+alias gdac-test='uv run pytest'
+```
+
+After adding aliases, reload your shell:
+```bash
+source ~/.zshrc  # or ~/.bashrc
+```
+
+Then use gdac normally:
+```bash
+gdac --model qwen2.5-coder-14b --repo .
+```
+
 ## 🎯 Quick Start
 
 ### Interactive REPL Mode
 ```bash
 # Start with default model
-gdac
+gdac                              # with pip or uv aliases
+uv run gdac                      # with uv (no aliases)
 
 # With specific model
-gdac --model remote-openai
+gdac --model remote-openai       # with pip or uv aliases
+uv run gdac --model remote-openai # with uv (no aliases)
 
 # With specific repository  
-gdac --repo /path/to/project
+gdac --repo /path/to/project     # with pip or uv aliases
+uv run gdac --repo /path/to/project # with uv (no aliases)
 ```
 
 ### Command-Line Usage
 ```bash
 # List available models
-gdac models
+gdac models                         # with pip or uv aliases
+uv run gdac models                 # with uv (no aliases)
 
 # Run with local model
 gdac run --model qwen2.5-coder-14b --repo . \
+  --goal "Fix failing tests and add --dry-run flag"
+# or with uv (no aliases):
+uv run gdac run --model qwen2.5-coder-14b --repo . \
   --goal "Fix failing tests and add --dry-run flag"
 
 # Run with OpenAI
@@ -172,13 +210,16 @@ export AGENTIC_READ_EXPIRY=1800   # Read cache expiry (seconds)
 
 ```bash
 # Run all tests
-pytest tests/
+pytest tests/                        # with pip or gdac-test alias
+uv run pytest tests/                # with uv (no aliases)
 
 # Run with coverage
-pytest --cov=agentic_coder --cov-report=html
+pytest --cov=agentic_coder --cov-report=html        # with pip or uv aliases  
+uv run pytest --cov=agentic_coder --cov-report=html # with uv (no aliases)
 
 # Run specific tests
-pytest tests/test_agentic_coder.py::TestMCP -v
+pytest tests/test_agentic_coder.py::TestMCP -v        # with pip or uv aliases
+uv run pytest tests/test_agentic_coder.py::TestMCP -v # with uv (no aliases)
 ```
 
 ## 📊 Performance
